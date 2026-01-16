@@ -18,6 +18,10 @@ if (string.IsNullOrWhiteSpace(connStr))
 builder.Services.AddDbContext<TelemetryDbContext>(options =>
     options.UseNpgsql(connStr));
 
+// Health checks (includes PostgreSQL check)
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connStr, name: "postgres");
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -32,5 +36,8 @@ app.UseHttpsRedirection();
 //app.UseAuthorization();
 
 app.MapControllers();
+
+// Health endpoint
+app.MapHealthChecks("/health");
 
 app.Run();
