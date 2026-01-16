@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Telemetry.Api.Contracts;
 using Telemetry.Api.Data;
 using Telemetry.Api.Models;
 
@@ -11,44 +12,37 @@ public sealed class TelemetryController : ControllerBase
 {
     private readonly TelemetryDbContext _db;
 
-    public TelemetryController(TelemetryDbContext db)
-    {
-        _db = db;
-    }
+    public TelemetryController(TelemetryDbContext db) => _db = db;
 
-    // POST: api/telemetry
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] TelemetryEvent telemetry)
+    public async Task<ActionResult<TelemetryEvent>> Create([FromBody] CreateTelemetryRequest request)
     {
-        telemetry.TimestampUtc = DateTime.UtcNow;
+        // Model validation is automatic because of [ApiController]
+        var entity = new TelemetryEvent
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = request.DeviceId,
+            Temperature = request.Temperature,
+            CpuUsage = request.CpuUsage,
+            TimestampUtc = DateTime.UtcNow
+        };
 
-        _db.TelemetryEvents.Add(telemetry);
+        _db.TelemetryEvents.Add(entity);
         await _db.SaveChangesAsync();
 
-        return Ok(telemetry);
+        return Ok(entity);
     }
 
-    // GET: api/telemetry
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var data = await _db.TelemetryEvents
+    public async Task<ActionResult<List<TelemetryEvent>>> GetAll()
+        => await _db.TelemetryEvents
             .OrderByDescending(x => x.TimestampUtc)
-            .Take(100)
             .ToListAsync();
 
-        return Ok(data);
-    }
-
-    // GET: api/telemetry/device/{deviceId}
     [HttpGet("device/{deviceId}")]
-    public async Task<IActionResult> GetByDevice(string deviceId)
-    {
-        var data = await _db.TelemetryEvents
+    public async Task<ActionResult<List<TelemetryEvent>>> GetByDevice(string deviceId)
+        => await _db.TelemetryEvents
             .Where(x => x.DeviceId == deviceId)
             .OrderByDescending(x => x.TimestampUtc)
             .ToListAsync();
-
-        return Ok(data);
-    }
 }
