@@ -33,16 +33,38 @@ public sealed class TelemetryController : ControllerBase
         return Ok(entity);
     }
 
+    // GET /api/Telemetry?deviceId=...&skip=0&take=100
     [HttpGet]
-    public async Task<ActionResult<List<TelemetryEvent>>> GetAll()
-        => await _db.TelemetryEvents
+    public async Task<ActionResult<List<TelemetryEvent>>> Get(
+        [FromQuery] string? deviceId,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 100)
+    {
+        // Guardrails
+        if (skip < 0) skip = 0;
+        if (take <= 0) take = 100;
+        if (take > 500) take = 500; // prevent huge responses
+
+        var query = _db.TelemetryEvents.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(deviceId))
+            query = query.Where(x => x.DeviceId == deviceId);
+
+        var items = await query
             .OrderByDescending(x => x.TimestampUtc)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync();
 
+        return Ok(items);
+    }
+
+    // GET /api/Telemetry/device/{deviceId}?skip=0&take=100
     [HttpGet("device/{deviceId}")]
-    public async Task<ActionResult<List<TelemetryEvent>>> GetByDevice(string deviceId)
-        => await _db.TelemetryEvents
-            .Where(x => x.DeviceId == deviceId)
-            .OrderByDescending(x => x.TimestampUtc)
-            .ToListAsync();
+    public async Task<ActionResult<List<TelemetryEvent>>> GetByDevice(
+        string deviceId,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 100)
+        => await Get(deviceId, skip, take);
+
 }
