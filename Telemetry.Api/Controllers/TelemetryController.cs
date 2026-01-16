@@ -21,7 +21,7 @@ public sealed class TelemetryController : ControllerBase
         var entity = new TelemetryEvent
         {
             Id = Guid.NewGuid(),
-            DeviceId = request.DeviceId,
+            DeviceId = request.DeviceId.Trim(),
             Temperature = request.Temperature,
             CpuUsage = request.CpuUsage,
             TimestampUtc = DateTime.UtcNow
@@ -29,6 +29,21 @@ public sealed class TelemetryController : ControllerBase
 
         _db.TelemetryEvents.Add(entity);
         await _db.SaveChangesAsync();
+
+        // 201 Created with Location header
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
+    }
+
+    // GET /api/Telemetry/{id}
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<TelemetryEvent>> GetById(Guid id)
+    {
+        var entity = await _db.TelemetryEvents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (entity is null)
+            return NotFound();
 
         return Ok(entity);
     }
@@ -48,7 +63,7 @@ public sealed class TelemetryController : ControllerBase
         var query = _db.TelemetryEvents.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(deviceId))
-            query = query.Where(x => x.DeviceId == deviceId);
+            query = query.Where(x => x.DeviceId == deviceId.Trim());
 
         var items = await query
             .OrderByDescending(x => x.TimestampUtc)
@@ -66,5 +81,4 @@ public sealed class TelemetryController : ControllerBase
         [FromQuery] int skip = 0,
         [FromQuery] int take = 100)
         => await Get(deviceId, skip, take);
-
 }
